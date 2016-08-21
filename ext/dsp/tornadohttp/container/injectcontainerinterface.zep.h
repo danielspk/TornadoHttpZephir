@@ -1,0 +1,14 @@
+
+extern zend_class_entry *dsp_tornadohttp_container_injectcontainerinterface_ce;
+
+ZEPHIR_INIT_CLASS(Dsp_TornadoHttp_Container_InjectContainerInterface);
+
+ZEND_BEGIN_ARG_INFO_EX(arginfo_dsp_tornadohttp_container_injectcontainerinterface_setcontainer, 0, 0, 1)
+	ZEND_ARG_OBJ_INFO(0, container, Interop\\Container\\ContainerInterface, 0)
+ZEND_END_ARG_INFO()
+
+ZEPHIR_INIT_FUNCS(dsp_tornadohttp_container_injectcontainerinterface_method_entry) {
+	PHP_ABSTRACT_ME(Dsp_TornadoHttp_Container_InjectContainerInterface, getContainer, NULL)
+	PHP_ABSTRACT_ME(Dsp_TornadoHttp_Container_InjectContainerInterface, setContainer, arginfo_dsp_tornadohttp_container_injectcontainerinterface_setcontainer)
+	PHP_FE_END
+};

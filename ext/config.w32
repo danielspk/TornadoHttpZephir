@@ -1,0 +1,22 @@
+ARG_ENABLE("dsp", "enable dsp", "no");
+
+if (PHP_DSP != "no") {
+  EXTENSION("dsp", "dsp.c", null, "-I"+configure_module_dirname);
+  ADD_SOURCES(configure_module_dirname + "/kernel", "main.c memory.c exception.c hash.c debug.c backtrace.c object.c array.c string.c fcall.c require.c file.c operators.c math.c concat.c variables.c filter.c iterator.c exit.c time.c", "dsp");
+  ADD_SOURCES(configure_module_dirname + "/kernel/extended", "array.c fcall.c", "dsp");
+  /* PCRE is always included on WIN32 */
+  AC_DEFINE("ZEPHIR_USE_PHP_PCRE", 1, "Whether PHP pcre extension is present at compile time");
+  if (PHP_JSON != "no") {
+    ADD_EXTENSION_DEP("dsp", "json");
+    AC_DEFINE("ZEPHIR_USE_PHP_JSON", 1, "Whether PHP json extension is present at compile time");
+  }
+  
+  ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp/exception/http", "clienterrorexception.zep.c internalservererrorexception.zep.c badgatewayexception.zep.c badrequestexception.zep.c conflictexception.zep.c forbiddenexception.zep.c methodnotallowedexception.zep.c notacceptableexception.zep.c notfoundexception.zep.c paymentrequiredexception.zep.c preconditionfailedexception.zep.c requestentitytoolargeexception.zep.c serviceunavailableexception.zep.c toomanyrequestexception.zep.c unauthorizedexception.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp/container", "injectcontainerinterface.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp/middleware", "middlewareinterface.zep.c middleware.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp/resolver", "resolverinterface.zep.c resolver.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp", "application.zep.c tornadohttp.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp/tornadohttp/exception", "middlewareexception.zep.c", "dsp");
+	ADD_SOURCES(configure_module_dirname + "/dsp", "0__closure.zep.c 1__closure.zep.c 2__closure.zep.c", "dsp");
+  ADD_FLAG("CFLAGS_DSP", "/D ZEPHIR_RELEASE");
+}
