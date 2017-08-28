@@ -21,7 +21,7 @@ interface MiddlewareInterface
      * @param RequestInterface request Request
      * @param ResponseInterface response Response
      * @param callable next Next middleware
-     * @return callable Callable middleware
+     * @return ResponseInterface Response
      */
-    public function __invoke(<RequestInterface> request, <ResponseInterface> response, callable next) -> callable;
+    public function __invoke(<RequestInterface> request, <ResponseInterface> response, callable next) -> <ResponseInterface>;
 }

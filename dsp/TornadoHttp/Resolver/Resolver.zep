@@ -24,7 +24,7 @@ class Resolver implements ResolverInterface
      *
      * @param ContainerInterface container Service Container
      */
-    public function __constructor(<ContainerInterface> container = null)
+    public function __construct(<ContainerInterface> container = null)
     {
         let this->container = container;
     }
@@ -41,7 +41,7 @@ class Resolver implements ResolverInterface
             if (this->container && this->container->has(middleware)) {
                 let middleware = this->container->get(middleware);
             } else{
-                let middleware = new {middleware}();
+                let middleware = (new \ReflectionClass(middleware))->newInstanceArgs();
             }
         } elseif (is_array(middleware)) {
             let middleware = (new \ReflectionClass(middleware[0]))
@@ -72,12 +72,14 @@ class Resolver implements ResolverInterface
         let reflexClass = new \ReflectionClass(middleware);
 
         let recursiveInterfaces = function(<\ReflectionClass> reflexClass) {
-            if (in_array("Dsp\\TornadoHttp\\Container\\InjectContainerInterface", reflexClass->getInterfaceNames())) {
+            if (in_array("DMS\\TornadoHttp\\Container\\InjectContainerInterface", reflexClass->getInterfaceNames())) {
                 return true;
             }
+
             if (reflexClass->getParentClass() !== false) {
                 return {this}(reflexClass->getParentClass());
             }
+
             return false;
         };
 

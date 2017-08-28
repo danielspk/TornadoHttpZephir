@@ -51,7 +51,7 @@ final class TornadoHttp
      * @param string environment Environment
      */
     public function __construct(
-        array middlewares = null,
+        array middlewares = [],
         <ContainerInterface> container = null,
         <ResolverInterface> resolver = null,
         string environment = "dev"
