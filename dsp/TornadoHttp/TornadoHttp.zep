@@ -20,7 +20,7 @@ final class TornadoHttp
     /**
      * Version
      */
-    const VERSION = "0.1.0";
+    const VERSION = "0.2.0";
 
     /**
      * @var \SplQueue Middleware queue
@@ -85,14 +85,17 @@ final class TornadoHttp
             if (
                 (
                     isset(mdw["methods"]) &&
+                    mdw["methods"] !== null &&
                     !in_array(request->getMethod(), mdw["methods"])
                 ) ||
                 (
                     isset(mdw["path"]) &&
+                    !empty(mdw["path"]) &&
                     preg_match(mdw["path"], request->getUri()->getPath()) !== 1
                 ) ||
                 (
                     isset(mdw["env"]) &&
+                    mdw["env"] !== null &&
                     !in_array(this->environment, mdw["env"])
                 )
             ) {
@@ -119,8 +122,8 @@ final class TornadoHttp
     public function add(
         middleware,
         string! path = null,
-        array methods = null,
-        array environments = null,
+        array! methods = null,
+        array! environments = null,
         int! index = -1
     ) -> void
     {
@@ -229,7 +232,7 @@ final class TornadoHttp
             <ResponseInterface> response,
             callable next
         ) {
-            return next(request, response);
+            return {next}(request, response);
         };
     }
 

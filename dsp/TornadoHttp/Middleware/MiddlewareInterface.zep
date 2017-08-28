@@ -4,7 +4,6 @@
 
 namespace Dsp\TornadoHttp\Middleware;
 
-use Interop\Container\ContainerInterface;
 use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 

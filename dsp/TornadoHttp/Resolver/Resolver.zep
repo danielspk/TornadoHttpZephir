@@ -72,7 +72,10 @@ class Resolver implements ResolverInterface
         let reflexClass = new \ReflectionClass(middleware);
 
         let recursiveInterfaces = function(<\ReflectionClass> reflexClass) {
-            if (in_array("DMS\\TornadoHttp\\Container\\InjectContainerInterface", reflexClass->getInterfaceNames())) {
+            if (
+                //in_array("Dsp\TornadoHttp\Container\ContainerTrait", reflexClass->getTraitNames()) ||
+                in_array("Dsp\\TornadoHttp\\Container\\InjectContainerInterface", reflexClass->getInterfaceNames())
+            ) {
                 return true;
             }
 
