@@ -9,5 +9,4 @@ compile-errors.log
 compile.log
 
 # Test
-test/vendor/
-test/composer.lock
+test/vendor

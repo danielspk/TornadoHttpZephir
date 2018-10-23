@@ -1,28 +1,61 @@
 <?php
 /**
- * Zend Framework (http://framework.zend.com/)
- *
- * @see       http://github.com/zendframework/zend-diactoros for the canonical source repository
- * @copyright Copyright (c) 2015-2016 Zend Technologies USA Inc. (http://www.zend.com)
+ * @see       https://github.com/zendframework/zend-diactoros for the canonical source repository
+ * @copyright Copyright (c) 2015-2018 Zend Technologies USA Inc. (http://www.zend.com)
  * @license   https://github.com/zendframework/zend-diactoros/blob/master/LICENSE.md New BSD License
  */
 
+declare(strict_types=1);
+
 namespace Zend\Diactoros;
 
-use InvalidArgumentException;
 use Psr\Http\Message\StreamInterface;
 use Psr\Http\Message\UploadedFileInterface;
-use RuntimeException;
+
+use function dirname;
+use function fclose;
+use function fopen;
+use function fwrite;
+use function is_dir;
+use function is_int;
+use function is_resource;
+use function is_string;
+use function is_writable;
+use function move_uploaded_file;
+use function sprintf;
+use function strpos;
+
+use const PHP_SAPI;
+use const UPLOAD_ERR_CANT_WRITE;
+use const UPLOAD_ERR_EXTENSION;
+use const UPLOAD_ERR_FORM_SIZE;
+use const UPLOAD_ERR_INI_SIZE;
+use const UPLOAD_ERR_NO_FILE;
+use const UPLOAD_ERR_NO_TMP_DIR;
+use const UPLOAD_ERR_OK;
+use const UPLOAD_ERR_PARTIAL;
 
 class UploadedFile implements UploadedFileInterface
 {
+    const ERROR_MESSAGES = [
+        UPLOAD_ERR_OK         => 'There is no error, the file uploaded with success',
+        UPLOAD_ERR_INI_SIZE   => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+        UPLOAD_ERR_FORM_SIZE  => 'The uploaded file exceeds the MAX_FILE_SIZE directive that was '
+            . 'specified in the HTML form',
+        UPLOAD_ERR_PARTIAL    => 'The uploaded file was only partially uploaded',
+        UPLOAD_ERR_NO_FILE    => 'No file was uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+        UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+        UPLOAD_ERR_EXTENSION  => 'A PHP extension stopped the file upload.',
+    ];
+
     /**
-     * @var string
+     * @var string|null
      */
     private $clientFilename;
 
     /**
-     * @var string
+     * @var string|null
      */
     private $clientMediaType;
 
@@ -57,10 +90,15 @@ class UploadedFile implements UploadedFileInterface
      * @param int $errorStatus
      * @param string|null $clientFilename
      * @param string|null $clientMediaType
-     * @throws InvalidArgumentException
+     * @throws Exception\InvalidArgumentException
      */
-    public function __construct($streamOrFile, $size, $errorStatus, $clientFilename = null, $clientMediaType = null)
-    {
+    public function __construct(
+        $streamOrFile,
+        int $size,
+        int $errorStatus,
+        string $clientFilename = null,
+        string $clientMediaType = null
+    ) {
         if ($errorStatus === UPLOAD_ERR_OK) {
             if (is_string($streamOrFile)) {
                 $this->file = $streamOrFile;
@@ -71,54 +109,40 @@ class UploadedFile implements UploadedFileInterface
 
             if (! $this->file && ! $this->stream) {
                 if (! $streamOrFile instanceof StreamInterface) {
-                    throw new InvalidArgumentException('Invalid stream or file provided for UploadedFile');
+                    throw new Exception\InvalidArgumentException('Invalid stream or file provided for UploadedFile');
                 }
                 $this->stream = $streamOrFile;
             }
         }
 
-        if (! is_int($size)) {
-            throw new InvalidArgumentException('Invalid size provided for UploadedFile; must be an int');
-        }
         $this->size = $size;
 
-        if (! is_int($errorStatus)
-            || 0 > $errorStatus
-            || 8 < $errorStatus
-        ) {
-            throw new InvalidArgumentException(
+        if (0 > $errorStatus || 8 < $errorStatus) {
+            throw new Exception\InvalidArgumentException(
                 'Invalid error status for UploadedFile; must be an UPLOAD_ERR_* constant'
             );
         }
         $this->error = $errorStatus;
 
-        if (null !== $clientFilename && ! is_string($clientFilename)) {
-            throw new InvalidArgumentException(
-                'Invalid client filename provided for UploadedFile; must be null or a string'
-            );
-        }
         $this->clientFilename = $clientFilename;
-
-        if (null !== $clientMediaType && ! is_string($clientMediaType)) {
-            throw new InvalidArgumentException(
-                'Invalid client media type provided for UploadedFile; must be null or a string'
-            );
-        }
         $this->clientMediaType = $clientMediaType;
     }
 
     /**
      * {@inheritdoc}
-     * @throws \RuntimeException if the upload was not successful.
+     * @throws Exception\UploadedFileAlreadyMovedException if the upload was
+     *     not successful.
      */
-    public function getStream()
+    public function getStream() : StreamInterface
     {
         if ($this->error !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Cannot retrieve stream due to upload error');
+            throw Exception\UploadedFileErrorException::dueToStreamUploadError(
+                self::ERROR_MESSAGES[$this->error]
+            );
         }
 
         if ($this->moved) {
-            throw new RuntimeException('Cannot retrieve stream after it has already been moved');
+            throw new Exception\UploadedFileAlreadyMovedException();
         }
 
         if ($this->stream instanceof StreamInterface) {
@@ -135,31 +159,32 @@ class UploadedFile implements UploadedFileInterface
      * @see http://php.net/is_uploaded_file
      * @see http://php.net/move_uploaded_file
      * @param string $targetPath Path to which to move the uploaded file.
-     * @throws \RuntimeException if the upload was not successful.
-     * @throws \InvalidArgumentException if the $path specified is invalid.
-     * @throws \RuntimeException on any error during the move operation, or on
-     *     the second or subsequent call to the method.
+     * @throws Exception\UploadedFileErrorException if the upload was not successful.
+     * @throws Exception\InvalidArgumentException if the $path specified is invalid.
+     * @throws Exception\UploadedFileErrorException on any error during the
+     *     move operation, or on the second or subsequent call to the method.
      */
-    public function moveTo($targetPath)
+    public function moveTo($targetPath) : void
     {
-        if ($this->error !== UPLOAD_ERR_OK) {
-            throw new RuntimeException('Cannot retrieve stream due to upload error');
+        if ($this->moved) {
+            throw new Exception\UploadedFileAlreadyMovedException('Cannot move file; already moved!');
         }
 
-        if (! is_string($targetPath)) {
-            throw new InvalidArgumentException(
-                'Invalid path provided for move operation; must be a string'
+        if ($this->error !== UPLOAD_ERR_OK) {
+            throw Exception\UploadedFileErrorException::dueToStreamUploadError(
+                self::ERROR_MESSAGES[$this->error]
             );
         }
 
-        if (empty($targetPath)) {
-            throw new InvalidArgumentException(
+        if (! is_string($targetPath) || empty($targetPath)) {
+            throw new Exception\InvalidArgumentException(
                 'Invalid path provided for move operation; must be a non-empty string'
             );
         }
 
-        if ($this->moved) {
-            throw new RuntimeException('Cannot move file; already moved!');
+        $targetDirectory = dirname($targetPath);
+        if (! is_dir($targetDirectory) || ! is_writable($targetDirectory)) {
+            throw Exception\UploadedFileErrorException::dueToUnwritableTarget($targetDirectory);
         }
 
         $sapi = PHP_SAPI;
@@ -171,7 +196,7 @@ class UploadedFile implements UploadedFileInterface
             default:
                 // SAPI environment, with file present
                 if (false === move_uploaded_file($this->file, $targetPath)) {
-                    throw new RuntimeException('Error occurred while moving uploaded file');
+                    throw Exception\UploadedFileErrorException::forUnmovableFile();
                 }
                 break;
         }
@@ -184,7 +209,7 @@ class UploadedFile implements UploadedFileInterface
      *
      * @return int|null The file size in bytes or null if unknown.
      */
-    public function getSize()
+    public function getSize() : ?int
     {
         return $this->size;
     }
@@ -195,7 +220,7 @@ class UploadedFile implements UploadedFileInterface
      * @see http://php.net/manual/en/features.file-upload.errors.php
      * @return int One of PHP's UPLOAD_ERR_XXX constants.
      */
-    public function getError()
+    public function getError() : int
     {
         return $this->error;
     }
@@ -206,7 +231,7 @@ class UploadedFile implements UploadedFileInterface
      * @return string|null The filename sent by the client or null if none
      *     was provided.
      */
-    public function getClientFilename()
+    public function getClientFilename() : ?string
     {
         return $this->clientFilename;
     }
@@ -214,7 +239,7 @@ class UploadedFile implements UploadedFileInterface
     /**
      * {@inheritdoc}
      */
-    public function getClientMediaType()
+    public function getClientMediaType() : ?string
     {
         return $this->clientMediaType;
     }
@@ -224,11 +249,11 @@ class UploadedFile implements UploadedFileInterface
      *
      * @param string $path
      */
-    private function writeFile($path)
+    private function writeFile(string $path) : void
     {
         $handle = fopen($path, 'wb+');
         if (false === $handle) {
-            throw new RuntimeException('Unable to write to designated path');
+            throw Exception\UploadedFileErrorException::dueToUnwritablePath();
         }
 
         $stream = $this->getStream();

@@ -1,9 +1,7 @@
 <?php
 /**
- * Zend Framework (http://framework.zend.com/)
- *
- * @link      http://github.com/zendframework/zf2 for the canonical source repository
- * @copyright Copyright (c) 2005-2015 Zend Technologies USA Inc. (http://www.zend.com)
+ * @link      http://github.com/zendframework/zend-servicemanager for the canonical source repository
+ * @copyright Copyright (c) 2005-2016 Zend Technologies USA Inc. (http://www.zend.com)
  * @license   http://framework.zend.com/license/new-bsd New BSD License
  */
 
@@ -22,9 +20,6 @@ use Zend\ServiceManager\Exception\CyclicAliasException;
 use Zend\ServiceManager\Exception\InvalidArgumentException;
 use Zend\ServiceManager\Exception\ServiceNotCreatedException;
 use Zend\ServiceManager\Exception\ServiceNotFoundException;
-use Zend\ServiceManager\Factory\AbstractFactoryInterface;
-use Zend\ServiceManager\Factory\DelegatorFactoryInterface;
-use Zend\ServiceManager\Initializer\InitializerInterface;
 
 /**
  * Service Manager.
@@ -44,7 +39,7 @@ use Zend\ServiceManager\Initializer\InitializerInterface;
 class ServiceManager implements ServiceLocatorInterface
 {
     /**
-     * @var AbstractFactoryInterface[]
+     * @var Factory\AbstractFactoryInterface[]
      */
     protected $abstractFactories = [];
 
@@ -70,7 +65,7 @@ class ServiceManager implements ServiceLocatorInterface
     protected $creationContext;
 
     /**
-     * @var string[][]|DelegatorFactoryInterface[][]
+     * @var string[][]|Factory\DelegatorFactoryInterface[][]
      */
     protected $delegators = [];
 
@@ -82,7 +77,7 @@ class ServiceManager implements ServiceLocatorInterface
     protected $factories = [];
 
     /**
-     * @var InitializerInterface[]
+     * @var Initializer\InitializerInterface[]|callable[]
      */
     protected $initializers = [];
 
@@ -135,6 +130,13 @@ class ServiceManager implements ServiceLocatorInterface
      * @var bool
      */
     protected $configured = false;
+
+    /**
+     * Cached abstract factories from string.
+     *
+     * @var array
+     */
+    private $cachedAbstractFactories = [];
 
     /**
      * Constructor.
@@ -475,7 +477,7 @@ class ServiceManager implements ServiceLocatorInterface
     /**
      * Add an initializer.
      *
-     * @param string|callable|InitializerInterface $initializer
+     * @param string|callable|Initializer\InitializerInterface $initializer
      */
     public function addInitializer($initializer)
     {
@@ -507,7 +509,7 @@ class ServiceManager implements ServiceLocatorInterface
     /**
      * Instantiate abstract factories for to avoid checks during service construction.
      *
-     * @param string[]|AbstractFactoryInterface[] $abstractFactories
+     * @param string[]|Factory\AbstractFactoryInterface[] $abstractFactories
      *
      * @return void
      */
@@ -515,11 +517,17 @@ class ServiceManager implements ServiceLocatorInterface
     {
         foreach ($abstractFactories as $abstractFactory) {
             if (is_string($abstractFactory) && class_exists($abstractFactory)) {
-                $abstractFactory = new $abstractFactory();
+                //Cached string
+                if (! isset($this->cachedAbstractFactories[$abstractFactory])) {
+                    $this->cachedAbstractFactories[$abstractFactory] = new $abstractFactory();
+                }
+
+                $abstractFactory = $this->cachedAbstractFactories[$abstractFactory];
             }
 
-            if ($abstractFactory instanceof AbstractFactoryInterface) {
-                $this->abstractFactories[] = $abstractFactory;
+            if ($abstractFactory instanceof Factory\AbstractFactoryInterface) {
+                $abstractFactoryObjHash = spl_object_hash($abstractFactory);
+                $this->abstractFactories[$abstractFactoryObjHash] = $abstractFactory;
                 continue;
             }
 
@@ -553,7 +561,7 @@ class ServiceManager implements ServiceLocatorInterface
     /**
      * Instantiate initializers for to avoid checks during service construction.
      *
-     * @param string[]|callable[]|InitializerInterface[] $initializers
+     * @param string[]|Initializer\InitializerInterface[]|callable[] $initializers
      *
      * @return void
      */
@@ -578,7 +586,7 @@ class ServiceManager implements ServiceLocatorInterface
                         'which does not exist; please provide a valid function name or class ' .
                         'name resolving to an implementation of %s',
                         $initializer,
-                        InitializerInterface::class
+                        Initializer\InitializerInterface::class
                     )
                 );
             }
@@ -589,7 +597,7 @@ class ServiceManager implements ServiceLocatorInterface
                     'An invalid initializer was registered. Expected a callable, or an instance of ' .
                     '(or string class name resolving to) "%s", ' .
                     'but "%s" was received',
-                    InitializerInterface::class,
+                    Initializer\InitializerInterface::class,
                     (is_object($initializer) ? get_class($initializer) : gettype($initializer))
                 )
             );
@@ -659,6 +667,12 @@ class ServiceManager implements ServiceLocatorInterface
         if (is_callable($factory)) {
             if ($lazyLoaded) {
                 $this->factories[$name] = $factory;
+            }
+            // PHP 5.6 fails on 'class::method' callables unless we explode them:
+            if (PHP_MAJOR_VERSION < 7
+                && is_string($factory) && strpos($factory, '::') !== false
+            ) {
+                $factory = explode('::', $factory);
             }
             return $factory;
         }
@@ -744,7 +758,7 @@ class ServiceManager implements ServiceLocatorInterface
     private function doCreate($resolvedName, array $options = null)
     {
         try {
-            if (!isset($this->delegators[$resolvedName])) {
+            if (! isset($this->delegators[$resolvedName])) {
                 // Let's create the service by fetching the factory
                 $factory = $this->getFactory($resolvedName);
                 $object  = $factory($this->creationContext, $resolvedName, $options);
@@ -758,7 +772,7 @@ class ServiceManager implements ServiceLocatorInterface
                 'Service with name "%s" could not be created. Reason: %s',
                 $resolvedName,
                 $exception->getMessage()
-            ), $exception->getCode(), $exception);
+            ), (int) $exception->getCode(), $exception);
         }
 
         foreach ($this->initializers as $initializer) {
@@ -879,7 +893,7 @@ class ServiceManager implements ServiceLocatorInterface
      */
     private function validateOverrides(array $config)
     {
-        if ($this->allowOverride || !$this->configured) {
+        if ($this->allowOverride || ! $this->configured) {
             return;
         }
 

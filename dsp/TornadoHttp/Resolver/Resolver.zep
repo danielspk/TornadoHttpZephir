@@ -1,16 +1,17 @@
 /*
- * Tornado Http Middleware Queue
+ * Tornado Http Middleware Handler PSR-15
  */
 
 namespace Dsp\TornadoHttp\Resolver;
 
 use Dsp\TornadoHttp\Exception\MiddlewareException;
 use Interop\Container\ContainerInterface;
+use Psr\Http\Server\MiddlewareInterface;
 
 /**
  * Dsp\TornadoHttp\Resolver\Resolver
  *
- * Middleware Resolver
+ * Middleware Resolver class
  */
 class Resolver implements ResolverInterface
 {
@@ -30,12 +31,12 @@ class Resolver implements ResolverInterface
     }
 
     /**
-     * Resolve middleware
+     * Solve and/or returns an MiddlewareInterface
      *
-     * @param callable|string|array|object middleware Middleware
-     * @return callable Callable
+     * @param MiddlewareInterface|string|array|object middleware Middleware
+     * @return MiddlewareInterface MiddlewareInterface
      */
-    public function solve(middleware) -> callable
+    public function solve(middleware) -> <MiddlewareInterface>
     {
         if (is_string(middleware)) {
             if (this->container && this->container->has(middleware)) {
@@ -48,8 +49,8 @@ class Resolver implements ResolverInterface
                 ->newInstanceArgs(middleware[1]);
         }
 
-        if (!is_callable(middleware)) {
-            throw new MiddlewareException("Middleware is not callable");
+        if (!middleware instanceOf MiddlewareInterface) {
+            throw new MiddlewareException("Middleware is not a PSR 15 Middleware Interface");
         }
 
         if (this->container && this->requireContainer(middleware)) {
@@ -60,12 +61,12 @@ class Resolver implements ResolverInterface
     }
 
     /**
-     * Check if the middleware implements InyectInterface
+     * Check if the middleware implements InjectContainerInterface
      *
-     * @param callable middleware Middleware
-     * @return bool Use InyectInterface
+     * @param MiddlewareInterface middleware Middleware
+     * @return bool Use InjectContainerInterface
      */
-    private function requireContainer(callable middleware) -> bool
+    private function requireContainer(<MiddlewareInterface> middleware) -> bool
     {
         var reflexClass, recursiveInterfaces;
 

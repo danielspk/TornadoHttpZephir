@@ -56,7 +56,7 @@
     "name": "Dsp Tornado Http",
     "description": "Tornado Http Middleware Queue",
     "author": "Daniel M. Spiridione",
-    "version": "0.1.0",
+    "version": "0.3.0",
     "verbose": false,
     "requires": {
         "extensions": []

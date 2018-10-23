@@ -1,26 +1,29 @@
 /*
- * Tornado Http Middleware Queue
+ * Tornado Http Middleware Handler PSR-15
  */
 
 namespace Dsp\TornadoHttp;
 
+use Dsp\TornadoHttp\Exception\MiddlewareException;
 use Dsp\TornadoHttp\Resolver\Resolver;
 use Dsp\TornadoHttp\Resolver\ResolverInterface;
 use Interop\Container\ContainerInterface;
-use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
+use Psr\Http\Message\ServerRequestInterface;
+use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Dsp\TornadoHttp\TornadoHttp
- *
- * Middleware Queue
+ * @todo: falta setter con retun this
+ * Main class
  */
 final class TornadoHttp
 {
     /**
      * Version
      */
-    const VERSION = "0.2.0";
+    const VERSION = "0.3.0";
 
     /**
      * @var \SplQueue Middleware queue
@@ -43,21 +46,34 @@ final class TornadoHttp
     private environment;
 
     /**
+     * @var ResponseInterface Current Response
+     */
+    private response;
+
+    /**
+     * @var mixed Handler Context
+     */
+    private context;
+    
+    /**
      * Constructor
      *
      * @param array middlewares Middlewares
+     * @param ResponseInterface response Response
      * @param ContainerInterface container Service Container
      * @param ResolverInterface resolver Middleware Resolver
      * @param string environment Environment
      */
     public function __construct(
         array middlewares = [],
+        <ResponseInterface> $response = null,
         <ContainerInterface> container = null,
         <ResolverInterface> resolver = null,
         string environment = "dev"
     )
     {
         let this->middlewares = new \SplQueue();
+        let this->response = response;
         let this->container = container;
         let this->resolver = resolver;
         let this->environment = environment;
@@ -66,16 +82,12 @@ final class TornadoHttp
     }
 
     /**
-     * Invocation
+     * Handle
      *
-     * @param RequestInterface request Request
-     * @param ResponseInterface response Response
+     * @param ServerRequestInterface request Request
      * @return ResponseInterface Response
      */
-    public function __invoke(
-        <RequestInterface> request,
-        <ResponseInterface> response
-    ) -> <ResponseInterface>
+    public function handle(<ServerRequestInterface> request) -> <ResponseInterface>
     {
         var next;
 
@@ -99,21 +111,27 @@ final class TornadoHttp
                     !in_array(this->environment, mdw["env"])
                 )
             ) {
-                let next = this->emptyNext();
-            } else {
-                let next = this->resolveMiddleware(mdw["middleware"]);
+                return this->handle(request);
             }
-        } else {
-            let next = this->finishNext();
+
+            let next = this->resolveMiddleware(mdw["middleware"]);
+
+            let this->response = next->process(request, this);
+
+            return this->reponse;
         }
 
-        return {next}(request, response, this);
+        if (this->response === null) {
+            throw new MiddlewareException('Empty response');
+        }
+
+        return this->response;
     }
 
     /**
      * Register one middleware
      *
-     * @param callable|object|string|array middleware Middleware
+     * @param mixed middleware Middleware
      * @param string path Path
      * @param array methods Methods allowed
      * @param array environments Environment allowed
@@ -186,6 +204,28 @@ final class TornadoHttp
     }
 
     /**
+     * Set the default Response
+     *
+     * @param ResponseInterface response Response
+     */
+    public function setResponse(<ResponseInterface> response) -> void
+    {
+        let this->response = response;
+    }
+
+    /**
+     * Get the last Response
+     * @todo: puede responder null!
+     * @return ResponseInterface Response
+     */
+    public function getResponse() -> <ResponseInterface>
+    {
+        return this->response;
+    }
+
+    //@todo: faltan getter and setters de context
+
+    /**
      * Set the Middleware Resolver
      *
      * @param ResolverInterface resolver Middleware Resolver
@@ -208,47 +248,15 @@ final class TornadoHttp
     /**
      * Solve and/or returns an callable or instance class
      *
-     * @param callable|string|array|object middleware Middleware
-     * @return callable|object Callable or Instance Class
+     * @param mixed middleware Middleware
+     * @return MiddlewareInterface Middleware
      */
-    private function resolveMiddleware(middleware) -> callable | object
+    private function resolveMiddleware(middleware) -> <MiddlewareInterface>
     {
         if (!this->resolver) {
             let this->resolver = new Resolver(this->container);
         }
 
         return this->resolver->solve(middleware);
-    }
-
-    /**
-     * Return an empty callable
-     *
-     * @return callable Empty callable
-     */
-    private function emptyNext() -> callable
-    {
-        return function(
-            <RequestInterface> request,
-            <ResponseInterface> response,
-            callable next
-        ) {
-            return {next}(request, response);
-        };
-    }
-
-    /**
-     * Return an finish callable
-     *
-     * @return callable Finish callable
-     */
-    private function finishNext() -> callable
-    {
-        return function(
-            <RequestInterface> request,
-            <ResponseInterface> response,
-            callable next
-        ) {
-            return response;
-        };
     }
 }
