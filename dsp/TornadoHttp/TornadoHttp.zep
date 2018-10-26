@@ -15,7 +15,7 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Dsp\TornadoHttp\TornadoHttp
- * @todo: falta setter con retun this
+ * @todo: implementar Psr\Http\Server\RequestHandlerInterface
  * Main class
  */
 final class TornadoHttp
@@ -118,11 +118,11 @@ final class TornadoHttp
 
             let this->response = next->process(request, this);
 
-            return this->reponse;
+            return this->response;
         }
 
         if (this->response === null) {
-            throw new MiddlewareException('Empty response');
+            throw new MiddlewareException("Empty response");
         }
 
         return this->response;
@@ -188,9 +188,11 @@ final class TornadoHttp
      *
      * @param ContainerInterface container Service Container
      */
-    public function setDI(<ContainerInterface> container) -> void
+    public function setDI(<ContainerInterface> container) -> <TornadoHttp>
     {
         let this->container = container;
+
+        return this;
     }
 
     /**
@@ -198,7 +200,7 @@ final class TornadoHttp
      *
      * @return ContainerInterface Service Container
      */
-    public function getDI() -> <ContainerInterface>
+    public function getDI() -> <ContainerInterface> | null
     {
         return this->container;
     }
@@ -208,31 +210,55 @@ final class TornadoHttp
      *
      * @param ResponseInterface response Response
      */
-    public function setResponse(<ResponseInterface> response) -> void
+    public function setResponse(<ResponseInterface> response) -> <TornadoHttp>
     {
         let this->response = response;
+
+        return this;
     }
 
     /**
      * Get the last Response
-     * @todo: puede responder null!
+     *
      * @return ResponseInterface Response
      */
-    public function getResponse() -> <ResponseInterface>
+    public function getResponse() -> <ResponseInterface> | null
     {
         return this->response;
     }
 
-    //@todo: faltan getter and setters de context
+    /**
+     * Set the handler Context
+     *
+     * @param mixed context Context
+     */
+    public function setContext(context) -> <TornadoHttp>
+    {
+        let this->context = context;
+ 
+        return this;
+    }
+ 
+    /**
+     * Get the handler Context
+     *
+     * @return mixed Context
+     */
+    public function getContext()
+    {
+        return this->context;
+    }
 
     /**
      * Set the Middleware Resolver
      *
      * @param ResolverInterface resolver Middleware Resolver
      */
-    public function setResolver(<ResolverInterface> resolver) -> void
+    public function setResolver(<ResolverInterface> resolver) -> <TornadoHttp>
     {
         let this->resolver = resolver;
+
+        return this;
     }
 
     /**
@@ -240,9 +266,11 @@ final class TornadoHttp
      *
      * @param string environment Environment
      */
-    public function setEnvironment(string environment) -> void
+    public function setEnvironment(string environment) -> <TornadoHttp>
     {
         let this->environment = environment;
+
+        return this;
     }
 
     /**

@@ -49,7 +49,9 @@ class Resolver implements ResolverInterface
                 ->newInstanceArgs(middleware[1]);
         }
 
-        if (!middleware instanceOf MiddlewareInterface) {
+        //var_dump((new \ReflectionClass(middleware))->hasMethod("handle"));
+
+        if !(middleware instanceOf MiddlewareInterface) {
             throw new MiddlewareException("Middleware is not a PSR 15 Middleware Interface");
         }
 

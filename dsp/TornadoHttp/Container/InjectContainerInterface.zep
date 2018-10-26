@@ -25,5 +25,5 @@ interface InjectContainerInterface
      *
      * @return ContainerInterface Service Container
      */
-     public function getContainer() -> <ContainerInterface>;
+    public function getContainer() -> <ContainerInterface>;
 }
