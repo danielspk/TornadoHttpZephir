@@ -8,6 +8,7 @@ use Dsp\TornadoHttp\Exception\MiddlewareException;
 use Dsp\TornadoHttp\Resolver\Resolver;
 use Dsp\TornadoHttp\Resolver\ResolverInterface;
 use Interop\Container\ContainerInterface;
+use Psr\Http\Message\RequestInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
 use Psr\Http\Server\MiddlewareInterface;
@@ -15,10 +16,10 @@ use Psr\Http\Server\RequestHandlerInterface;
 
 /**
  * Dsp\TornadoHttp\TornadoHttp
- * @todo: implementar Psr\Http\Server\RequestHandlerInterface
+ *
  * Main class
  */
-final class TornadoHttp
+final class TornadoHttp implements RequestHandlerInterface
 {
     /**
      * Version
@@ -91,6 +92,11 @@ final class TornadoHttp
     {
         var next;
 
+        // Fix Zephir in C PSR extension - change ServerRequestInterface to RequestInterface
+        var requestBase;
+        let requestBase = new RequestInterface();
+        let requestBase = request;
+
         if (!this->middlewares->isEmpty()) {
             var mdw = this->middlewares->dequeue();
 
@@ -98,12 +104,12 @@ final class TornadoHttp
                 (
                     isset(mdw["methods"]) &&
                     mdw["methods"] !== null &&
-                    !in_array(request->getMethod(), mdw["methods"])
+                    !in_array(requestBase->getMethod(), mdw["methods"])
                 ) ||
                 (
                     isset(mdw["path"]) &&
                     !empty(mdw["path"]) &&
-                    preg_match(mdw["path"], request->getUri()->getPath()) !== 1
+                    preg_match(mdw["path"], requestBase->getUri()->getPath()) !== 1
                 ) ||
                 (
                     isset(mdw["env"]) &&

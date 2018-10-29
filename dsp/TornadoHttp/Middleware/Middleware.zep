@@ -8,7 +8,7 @@ use Dsp\TornadoHttp\Container\InjectContainerInterface;
 use Interop\Container\ContainerInterface;
 use Psr\Http\Message\ResponseInterface;
 use Psr\Http\Message\ServerRequestInterface;
-//use Psr\Http\Server\MiddlewareInterface;
+use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 
 /**
@@ -16,7 +16,7 @@ use Psr\Http\Server\RequestHandlerInterface;
  *
  * Middleware abstract class
  */
-abstract class Middleware implements /*MiddlewareInterface,*/ InjectContainerInterface
+abstract class Middleware implements MiddlewareInterface, InjectContainerInterface
 {
     /**
      * @var ContainerInterface Service Container
