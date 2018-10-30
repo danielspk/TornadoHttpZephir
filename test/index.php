@@ -7,8 +7,8 @@ use Psr\Http\Server\MiddlewareInterface;
 use Psr\Http\Server\RequestHandlerInterface;
 use Zend\Diactoros\Response;
 use Zend\Diactoros\Response\JsonResponse;
-use Zend\Diactoros\Response\SapiEmitter;
 use Zend\Diactoros\ServerRequestFactory;
+use Zend\HttpHandlerRunner\Emitter\SapiEmitter;
 use Zend\ServiceManager\ServiceManager;
 
 require 'vendor/autoload.php';
@@ -24,19 +24,19 @@ $mdw0 = new class () extends Middleware implements MiddlewareInterface {
     public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
     {
         $response = $handler->handle($request);
-        $response = $response->withStatus(201);
+
+        $emitter = new SapiEmitter();
+        $emitter->emit($response);
+
+        return $response;
     }
 };
 
-$mdw1 = function(RequestInterface $request, callable $next) {
-    $response = new JsonResponse(['hello' => 'TornadoHttp'], $response->getStatusCode());
-    return $next($request, $response);
-};
-
-$mdw2 = function(RequestInterface $request, callable $next) {
-    $emitter = new SapiEmitter();
-    $emitter->emit($response);
-    return $response;
+$mdw1 = new class () extends Middleware implements MiddlewareInterface {
+    public function process(ServerRequestInterface $request, RequestHandlerInterface $handler): ResponseInterface
+    {
+        return new JsonResponse(['hello' => 'TornadoHttp'], 201);
+    }
 };
 
 $middlewares = [
@@ -45,11 +45,7 @@ $middlewares = [
         'methods'    => ['GET']
     ],
     [
-        'middleware' => $mdw1,
-        'methods'    => ['GET']
-    ],
-    [
-        'middleware' => $mdw2
+        'middleware' => $mdw1
     ]
 ];
 

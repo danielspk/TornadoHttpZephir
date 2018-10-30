@@ -7,6 +7,3 @@
 ext/
 compile-errors.log
 compile.log
-
-# Test
-test/vendor
